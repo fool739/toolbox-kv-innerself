@@ -2971,7 +2971,11 @@ function changeInnerSelfPC(newPC, oldPC) {
     // Extract first names from the player character objects
     const newName = getFirstName(newPC);
     const oldName = getFirstName(oldPC);
-    
+    // The old protagonist may be the unset "the protagonist" placeholder; writing
+    // that into the NPC list plants a ghost agent that triggers on the word
+    // "protagonist" and steals Inner Self's one task slot per turn.
+    const oldNameIsReal = oldName && oldName.toLowerCase() !== "protagonist";
+
     // Iterate through all story cards to find the Configure Inner Self card, which
     // has a sneaky little newline to throw a wrench in things
     for (const c of storyCards) {
@@ -2984,18 +2988,45 @@ function changeInnerSelfPC(newPC, oldPC) {
             );
 
             // Update the notes, which contains a list of NPCs
-            // Split the description at the first colon 
+            // Split the description at the first colon
             // to isolate the target section
             const splitDescription = c.description.split(":");
             if(splitDescription[1]){
                 // Within the second part (after colon),
-                // if the new PC is listed as an NPC, swap the names.
+                // if the new PC is listed as an NPC, swap the names
+                // (or just drop the new PC's line when there is no real
+                // old name to take their place).
                 splitDescription[1] = splitDescription[1]
-                    .replace(`\n${newName}\n`, `\n${oldName}\n`);
+                    .replace(`\n${newName}\n`, oldNameIsReal ? `\n${oldName}\n` : "\n");
             };
             // Rejoin the split description parts and update the card
             c.description = splitDescription.join(":");
         };
+    };
+
+    // Removing the new PC from the config card's NPC list is not enough: Inner
+    // Self re-adds any name whose story card carries {"agent": ...} keys metadata,
+    // so a swapped-in PC with an existing brain card becomes an agent again one
+    // turn later and hogs the task slot. Retire that metadata (keeping the brain
+    // contents), and revive the old PC's retired brain card if they have one.
+    for (const c of storyCards) {
+        if (typeof c.keys !== "string" || !c.keys.startsWith("{")) continue;
+        try {
+            const meta = JSON.parse(c.keys);
+            if (typeof meta.agent === "string" && getFirstName(meta.agent) === newName) {
+                meta.former_agent = meta.agent;
+                delete meta.agent;
+                c.keys = JSON.stringify(meta);
+            } else if (
+                oldNameIsReal
+                && typeof meta.former_agent === "string"
+                && getFirstName(meta.former_agent) === oldName
+            ) {
+                meta.agent = meta.former_agent;
+                delete meta.former_agent;
+                c.keys = JSON.stringify(meta);
+            }
+        } catch (e) {}
     };
 }
 
@@ -4342,7 +4373,7 @@ function InnerSelf(hook) {
                     message: "Inner Self grants story characters the ability to learn, plan, and adapt over time. Edit the entry and notes below to control how Inner Self behaves."
                 },
                 {
-                    message: "Note on Toolbox integration: Inner Self does not activate on turns Toolbox commands are used. Increasing thought formation chance can compensate for this."
+                    message: "Toolbox note: Inner Self skips turns that use Toolbox commands. Raise thought chance to compensate."
                 },
                 { message: "Enable Inner Self:", ...factory(
                     "allow", S.IS_INNER_SELF_ENABLED_BY_DEFAULT
@@ -4585,6 +4616,11 @@ function InnerSelf(hook) {
         )));
         // Merge all discovered agents: config, brain card metadata, and "@" pending
         config.agents = [...new Set([...(config.agents ?? fallback.agents), ...agents, ...pending])];
+        // Toolbox integration: never treat the player character as an agent
+        // Without this, a /protagonist swap into a brain-carrying NPC leaves the PC
+        // in the agent list, where their name wins the trigger scan on most turns
+        // and starves every real NPC of thought formation
+        config.agents = config.agents.filter(agent => (agent !== cleanAgent(config.player ?? "")));
         if (IS.AC.forced) {
             // Handle forced Auto-Cards installation (silly API stuff)
             config.auto = true;

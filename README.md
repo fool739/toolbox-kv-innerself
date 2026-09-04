@@ -10,9 +10,13 @@ Everything else — all Toolbox tools, commands, configuration cards, and passiv
 
 ### What changed vs. upstream Toolbox
 
-- `Library.js`: the vendored `InnerSelf(hook)` block is replaced with the KV-Inner-Self version (`v1.0.2-kv1`). Toolbox's config-card note about Toolbox/Inner Self integration is preserved.
+- `Library.js`: the vendored `InnerSelf(hook)` block is replaced with the KV-Inner-Self version (`v1.0.2-kv1`). Toolbox's config-card note about Toolbox/Inner Self integration is preserved (shortened so the config card entry stays under AID's 1000-char editor limit).
 - `Library.js`: one-line KV fix in the vendored `AutoCards` block (`action?.rawText` fallback when reading history actions).
 - `Context.js`: now starts with the `// @cache-compatible` marker required for Optimized Context support.
+- `/protagonist` + Inner Self fixes (Toolbox's `changeInnerSelfPC`, plus one guard in the vendored block):
+  - Swapping into an NPC who has a brain card now retires that card's agent metadata (memories kept), so Inner Self's config sync can't silently re-add the new PC to the agent list, where their name would win the trigger scan on most turns and starve real NPCs of thought formation. Swapping away again revives the retired brain.
+  - When the previous protagonist was the unset placeholder, the swap no longer writes a literal "protagonist" ghost agent into the NPC list.
+  - Inner Self's agent list now always excludes the configured player character.
 
 ### Caveat
 

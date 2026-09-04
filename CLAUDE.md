@@ -30,9 +30,12 @@ The two vendored blocks are self-contained black boxes:
 - Neither references our globals. **Almost no task requires reading or editing them.**
   To upgrade one, replace the whole function body from an upstream paste — don't diff-surgery it.
   InnerSelf's upstream is the KV build (https://github.com/Zoocata1/KV-Inner-Self), NOT stock
-  Inner Self — a stock paste would break Optimized Context again. Two local deltas to re-apply
-  on any upgrade: the "Note on Toolbox integration" config-card message inside InnerSelf, and
-  the `action?.rawText` fallback line inside AutoCards. Keep `// @cache-compatible` as the
+  Inner Self — a stock paste would break Optimized Context again. Three local deltas to re-apply
+  on any upgrade: the short "Toolbox note" config-card message inside InnerSelf; the
+  player-character filter on `config.agents` right after the agent-merge line in InnerSelf's
+  Config.get (pairs with `changeInnerSelfPC`'s brain-card retire/revive logic in our code —
+  without it a /protagonist swap leaves the PC hogging the one task slot per turn); and the
+  `action?.rawText` fallback line inside AutoCards. Keep `// @cache-compatible` as the
   first line of `Context.js`.
 
 These are **rigorously tested third-party scripts, not our code**, and almost never the source
